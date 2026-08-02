@@ -1,14 +1,16 @@
 # MLX LingBot-MAP
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-uqer1244%2Fmlx__lingbot--map-yellow)](https://huggingface.co/uqer1244/mlx_lingbot-map)
+[![Original Repo](https://img.shields.io/badge/Original-Robbyant%2Flingbot--map-black)](https://github.com/Robbyant/lingbot-map)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://python.org)
 [![Platform](https://img.shields.io/badge/Platform-Apple%20Silicon%20(M1%2FM2%2FM3%2FM4)-black.svg)](https://github.com/ml-explore/mlx)
 
 **Native Apple Silicon (Metal) GPU-Accelerated 3D Reconstruction Pipeline powered by Apple MLX.**
 
-This repository provides an ultra-fast, native Apple Silicon port of LingBot-MAP / Geometric Context Transformer (GCT) for streaming 3D reconstruction, point cloud generation, and depth estimation.
+This repository provides an ultra-fast, native Apple Silicon port of [LingBot-MAP / Geometric Context Transformer (GCT)](https://github.com/Robbyant/lingbot-map) for streaming 3D reconstruction, point cloud generation, and depth estimation.
 
-Model weights are hosted on Hugging Face: [uqer1244/mlx_lingbot-map](https://huggingface.co/uqer1244/mlx_lingbot-map)
+- **Original Project**: [Robbyant/lingbot-map](https://github.com/Robbyant/lingbot-map)
+- **Converted MLX Model Weights**: [uqer1244/mlx_lingbot-map](https://huggingface.co/uqer1244/mlx_lingbot-map)
 
 ---
 
@@ -85,7 +87,7 @@ huggingface-cli upload uqer1244/mlx_lingbot-map \
 
 ## PyTorch to MLX Weight Conversion
 
-If you have a original PyTorch `.pt` model checkpoint, convert it to MLX `.safetensors` with 100% loss-free validation:
+If you have a original PyTorch `.pt` model checkpoint from [robbyant/lingbot-map](https://huggingface.co/robbyant/lingbot-map), convert it to MLX `.safetensors` with 100% loss-free validation:
 
 ```bash
 python convert_weights.py
@@ -100,6 +102,17 @@ Verification Summary
  - Average Cosine Similarity: 1.00000000
 [SUCCESS] MLX converted weights are 100% identical to original PyTorch weights.
 ```
+
+---
+
+## Acknowledgements & Citation
+
+This project is an Apple Silicon MLX port derived from the original **LingBot-MAP** project:
+
+- **Original Project Repository**: [https://github.com/Robbyant/lingbot-map](https://github.com/Robbyant/lingbot-map)
+- **Original Model Weights**: [https://huggingface.co/robbyant/lingbot-map](https://huggingface.co/robbyant/lingbot-map)
+
+Special thanks to the authors of LingBot-MAP / GCT for their research and open-source contribution.
 
 ---
 
