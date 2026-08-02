@@ -1,0 +1,39 @@
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+env/
+venv/
+ENV/
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Data & Output Files
+*.ply
+*_preview.png
+temp_mlx_frames/
+outputs/
+.cache/
+.DS_Store
+
+# Large Model Weights (Downloaded from Hugging Face)
+checkpoints/*.pt
+checkpoints/*.safetensors
