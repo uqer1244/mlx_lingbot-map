@@ -1,12 +1,22 @@
 # MLX LingBot-MAP
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-uqer1244%2Fmlx__lingbot--map-yellow)](https://huggingface.co/uqer1244/mlx_lingbot-map)
+[![Original Repo](https://img.shields.io/badge/Original-Robbyant%2Flingbot--map-black)](https://github.com/Robbyant/lingbot-map)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://python.org)
 [![Platform](https://img.shields.io/badge/Platform-Apple%20Silicon%20(M1%2FM2%2FM3%2FM4)-black.svg)](https://github.com/ml-explore/mlx)
 
 **Native Apple Silicon (Metal) GPU-Accelerated 3D Reconstruction Pipeline powered by Apple MLX.**
 
 This repository provides a native Apple Silicon port of [LingBot-MAP / Geometric Context Transformer (GCT)](https://github.com/Robbyant/lingbot-map) for streaming 3D reconstruction, point cloud generation, camera pose estimation, and depth map prediction.
+
+---
+
+## 🔗 Links & Resources
+
+- **Converted MLX Model Weights (Hugging Face)**: [uqer1244/mlx_lingbot-map](https://huggingface.co/uqer1244/mlx_lingbot-map)
+- **Original Model Weights (Hugging Face)**: [robbyant/lingbot-map](https://huggingface.co/robbyant/lingbot-map)
+- **Original GitHub Repository**: [Robbyant/lingbot-map](https://github.com/Robbyant/lingbot-map)
 
 ---
 
