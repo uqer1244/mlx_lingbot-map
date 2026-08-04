@@ -3,39 +3,41 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Environments
+# Caches and Environments
+.pytest_cache/
+.cache/
 .venv/
 env/
 venv/
 ENV/
 
+# OS specific files
+.DS_Store
+Thumbs.db
+
 # Distribution / packaging
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
+.eggs/
 
-# Data & Output Files
-*.ply
-*_preview.png
+# Temporary frame extraction folders
 temp_mlx_frames/
 outputs/
-.cache/
-.DS_Store
+temp_pcd_images/
 
-# Large Model Weights (Downloaded from Hugging Face)
+# Generated 3D Map Output Files
+maps/*
+!maps/.gitkeep
+*.ply
+*.pcd
+*.npz
+*.obj
+*.glb
+*_preview.png
+
+# Large Model Weights (Checkpoints)
 checkpoints/*.pt
 checkpoints/*.safetensors
-
-README_HF.md
+checkpoints/*.npz
+!checkpoints/.gitkeep

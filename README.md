@@ -1,147 +1,112 @@
 # MLX LingBot-MAP
+
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-uqer1244%2Fmlx__lingbot--map-yellow)](https://huggingface.co/uqer1244/mlx_lingbot-map)
-[![Original Repo](https://img.shields.io/badge/Original-Robbyant%2Flingbot--map-black)](https://github.com/Robbyant/lingbot-map)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://python.org)
 [![Platform](https://img.shields.io/badge/Platform-Apple%20Silicon%20(M1%2FM2%2FM3%2FM4)-black.svg)](https://github.com/ml-explore/mlx)
 
 **Native Apple Silicon (Metal) GPU-Accelerated 3D Reconstruction Pipeline powered by Apple MLX.**
 
-This repository provides an ultra-fast, native Apple Silicon port of [LingBot-MAP / Geometric Context Transformer (GCT)](https://github.com/Robbyant/lingbot-map) for streaming 3D reconstruction, point cloud generation, and depth estimation.
-
-- **Original Project**: [Robbyant/lingbot-map](https://github.com/Robbyant/lingbot-map)
-- **Converted MLX Model Weights**: [uqer1244/mlx_lingbot-map](https://huggingface.co/uqer1244/mlx_lingbot-map)
+This repository provides a native Apple Silicon port of [LingBot-MAP / Geometric Context Transformer (GCT)](https://github.com/Robbyant/lingbot-map) for streaming 3D reconstruction, point cloud generation, camera pose estimation, and depth map prediction.
 
 ---
 
-## Key Features & Performance Benchmark
+## ⚡ Key Features
 
-- **122x Faster than PyTorch MPS**: Reconstructs 119 video frames in **~1.7 minutes** on Apple Silicon Metal GPU (compared to **~3.5 hours** on PyTorch MPS float32).
-- **100% Numerical Accuracy**: Includes weight converter verifying zero numerical loss (`Max Absolute Difference: 0.00e+00`, `Cosine Similarity: 1.00000000`) between PyTorch weights and MLX `.safetensors`.
-- **Metal Buffer Safety**: Chunked streaming inference prevents Metal GPU single buffer allocation limits (`10.7 GB ceiling`) even on long sequences.
-- **Automatic Hugging Face Integration**: Downloads weights automatically from [uqer1244/mlx_lingbot-map](https://huggingface.co/uqer1244/mlx_lingbot-map) if not present locally.
-- **Interactive 3D Web Viewer**: Live browser-based 3D point cloud visualization powered by [Viser](https://github.com/nerfstudio-project/viser).
-- **Apache 2.0 License**: Fully open-source and free for commercial and non-commercial use.
-
----
-
-## Benchmark Comparison (119 Video Frames)
-
-| Metrics | PyTorch (MPS) | MLX LingBot-MAP (Metal GPU) | Performance Gain |
-| :--- | :--- | :--- | :--- |
-| **Inference Time** | `12,516.4s` (~3.5 Hours) | **`102.26s` (~1.7 Minutes)** | **122.4x Faster** |
-| **Reconstructed Points** | 1,430,801 pts | **18,122,748 pts** | **12.6x Higher Density** |
-| **Metal GPU Efficiency** | OOM / Watermark Limits | **Native Metal Graph (~100% GPU)** | Safe & Stable |
-| **Weight Format** | `lingbot-map.pt` (4.63 GB) | `lingbot-map-mlx.safetensors` (4.41 GB) | Identical Weights |
+- **Apple Silicon Metal GPU Acceleration**: Optimized MLX graph execution for Apple M-series chips.
+- **Zero-RAM-Leak 2-Process Architecture**:
+  - `create_map.py`: Runs MLX GPU inference, saves 3D map data, and **immediately exits to free 100% of GPU & system RAM**.
+  - `view_map.py`: Standalone 3D Web Visualizer (**~150MB RAM**) without loading any MLX/PyTorch models into memory.
+- **Original LingBot-Map 3D Web Visualizer**: Includes native 1:1 integration of the original `PointCloudViewer` Viser web visualizer on `http://localhost:8080`.
+- **Multi-Format 3D Map Exporter**: Export point cloud & camera tracking data to `.ply`, `.pcd`, `.npz`, `.obj`.
+- **Voxel Downsampling & Noise Filtering**: Spatial 3D voxel grid downsampling and confidence thresholding.
 
 ---
 
-## Installation
+## 🚀 Quick Start Guide
+
+### 1. Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/mlx-lingbot-map.git
+# Clone repository
+git clone https://github.com/anmolduainter/lingbot-map-mlx.git
 cd mlx-lingbot-map
 
-# Create & activate a virtual environment
+# Create virtual environment & install dependencies
 python3 -m venv .venv
 source .venv/bin/activate
-
-# Install dependencies
 pip install -e .
 ```
 
 ---
 
-## Quick Start Demo
+### 2. High-Efficiency 2-Process Workflow (Recommended)
 
-Run streaming 3D reconstruction on an image folder or video file (weights will be automatically fetched from Hugging Face if needed):
-
-```bash
-# Run on image sequence with stride 2
-python demo_mlx.py --image_folder path/to/images --stride 2 --out_ply checkpoints/reconstruction.ply
-
-# Run on video file
-python demo_mlx.py --video_path path/to/video.mp4 --fps 10 --out_ply checkpoints/video_reconstruction.ply
-```
-
-After processing, an interactive 3D Viser viewer automatically launches at:
-**http://localhost:8080**
-
----
-
-## Model Weights & Hugging Face
-
-Weights are available on Hugging Face at:
-[https://huggingface.co/uqer1244/mlx_lingbot-map](https://huggingface.co/uqer1244/mlx_lingbot-map)
-
-To upload converted weights to your Hugging Face repository:
+#### Step 1: Create & Export 3D Map (`create_map.py`)
+Runs MLX GPU inference on images or video, exports the 3D map data, and frees GPU memory immediately upon completion:
 
 ```bash
-huggingface-cli upload uqer1244/mlx_lingbot-map \
-  checkpoints/lingbot-map-mlx.safetensors \
-  lingbot-map-mlx.safetensors
+# Process image sequence and save to .npz map archive in maps/
+python3 create_map.py --image_folder path/to/images --max_frames 20 --out_map maps/my_map.npz
+
+# Process video file with stride
+python3 create_map.py --video_path path/to/video.mp4 --fps 10 --out_map maps/video_map.ply --voxel_size 0.02
 ```
 
----
-
-## PyTorch to MLX Weight Conversion
-
-If you have a original PyTorch `.pt` model checkpoint from [robbyant/lingbot-map](https://huggingface.co/robbyant/lingbot-map), convert it to MLX `.safetensors` with 100% loss-free validation:
+#### Step 2: Visualize 3D Map (`view_map.py`)
+Launches the interactive 3D Web Viewer using negligible RAM (0% MLX model overhead):
 
 ```bash
-python convert_weights.py
+python3 view_map.py --map_file maps/my_map.npz --port 8080
 ```
 
-Validation output:
-```text
-Verification Summary
- - Total Layers: 1342 / 1342 (100.0% Matched)
- - Shape Validation: 100.0% Passed
- - Max Absolute Difference: 0.00e+00
- - Average Cosine Similarity: 1.00000000
-[SUCCESS] MLX converted weights are 100% identical to original PyTorch weights.
+Open your browser at: **[http://localhost:8080](http://localhost:8080)**
+
+---
+
+### 3. All-in-One Single Command (`demo_mlx.py`)
+
+If you want to run inference and launch the 3D web viewer in a single command:
+
+```bash
+python3 demo_mlx.py --image_folder path/to/images --out_ply maps/reconstruction.ply --port 8080
 ```
 
 ---
 
-## Acknowledgements & Citation
-
-This project is an Apple Silicon MLX port derived from the original **LingBot-MAP** project:
-
-- **Original Project Repository**: [https://github.com/Robbyant/lingbot-map](https://github.com/Robbyant/lingbot-map)
-- **Original Model Weights**: [https://huggingface.co/robbyant/lingbot-map](https://huggingface.co/robbyant/lingbot-map)
-
-Special thanks to the authors of LingBot-MAP / GCT for their research and open-source contribution.
-
----
-
-## Repository Structure
+## 📂 Project Architecture
 
 ```text
 mlx_lingbot-map/
-├── LICENSE                     # Apache License 2.0
-├── README.md                   # Project Documentation
-├── pyproject.toml              # Build & Package Setup
-├── requirements.txt            # Dependencies List
-├── demo_mlx.py                 # Main CLI Streaming 3D Reconstruction Executable
-├── convert_weights.py          # PyTorch -> MLX Weight Converter & Verifier
-├── visualize_ply.py            # Viser 3D Web Viewer & Preview Image Renderer
-├── checkpoints/
-│   └── lingbot-map-mlx.safetensors # Converted MLX Weights (~4.4 GB)
-└── lingbot_map_mlx/
-    ├── models/
-    │   └── gct_stream_mlx.py   # MLX Native GCT Stream Model Architecture
-    └── utils/
-        ├── geometry.py          # Pose Inversion & Point Cloud Unprojection
-        ├── hf_weights.py        # Automatic Hugging Face Weight Downloader
-        ├── load_fn.py           # Image/Video Frame Preprocessing
-        ├── pose_enc.py          # Intrinsic/Extrinsic Matrix Encoders
-        └── rotation.py          # Quaternion & Rotation Matrix Utils
+├── create_map.py         # [Process 1] MLX GPU inference & 3D map exporter (exits to release RAM)
+├── view_map.py           # [Process 2] Standalone lightweight 3D web visualizer (~150MB RAM)
+├── demo_mlx.py           # Single-command unified pipeline
+├── convert_weights.py    # PyTorch -> MLX float16 weight converter
+├── lingbot_map_mlx/      # Core MLX model package
+│   ├── aggregator/       # Feature extraction & streaming KV cache
+│   ├── heads/            # Camera pose & DPT depth heads
+│   ├── layers/           # Vision Transformer & RoPE layers
+│   ├── models/           # GCTBase & GCTStream models
+│   ├── utils/            # 3D geometry, pose encoding, & multi-format exporter
+│   └── vis/              # Original LingBot-Map PointCloudViewer web visualizer
+├── maps/                 # Storage for generated 3D map files (.npz, .ply)
+├── checkpoints/          # Model weights
+├── pyproject.toml
+└── requirements.txt
 ```
 
 ---
 
-## License
+## 📄 Export Formats
 
-This project is licensed under the **Apache License 2.0**. See the [LICENSE](LICENSE) file for details.
+| Format | Description | Target Use Case |
+| :--- | :--- | :--- |
+| **`.npz`** | Full compressed archive (Points, RGB, Depth, Conf, Extrinsics, Intrinsics) | Unity Sentis, AR/VR, Python downstream pipelines |
+| **`.ply`** | Standard 3D Point Cloud with RGB colors | MeshLab, CloudCompare, Blender |
+| **`.pcd`** | Point Cloud Data (ASCII / Binary) | PCL, ROS 1/2 |
+| **`.obj`** | Standard 3D Geometry file | 3D Modeling software |
+
+---
+
+## 📜 License
+
+Apache 2.0 License. Free for commercial and research use.

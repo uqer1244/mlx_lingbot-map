@@ -1,4 +1,13 @@
 """
-LingBot-MAP MLX Package: Apple Silicon Native 3D Reconstruction Engine.
+LingBot-Map MLX: Native Apple Silicon Streaming 3D Reconstruction Package
 """
-__version__ = "0.1.0"
+
+from lingbot_map_mlx.models.gct_stream import GCTStream
+from lingbot_map_mlx.load_weights import load_weights
+from lingbot_map_mlx.convert_weights import convert_pytorch_to_mlx
+
+__all__ = [
+    "GCTStream",
+    "load_weights",
+    "convert_pytorch_to_mlx",
+]

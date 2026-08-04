@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """
-MLX LingBot-MAP: Apple Silicon Metal Native Streaming 3D Reconstruction Pipeline.
+Create Map — MLX LingBot-MAP 3D Reconstruction Builder
 
-License: Apache License 2.0
+Runs MLX GPU inference, constructs 3D point cloud & camera parameters,
+saves the map to disk (.npz / .ply), and exits cleanly to free memory.
+
+Usage:
+    python create_map.py --image_folder example/loop --out_map checkpoints/loop_map.npz
 """
 
 import argparse
@@ -22,6 +26,7 @@ from lingbot_map_mlx.models.gct_stream import GCTStream
 from lingbot_map_mlx.load_weights import load_weights
 from lingbot_map_mlx.utils.pose_enc import pose_encoding_to_extri_intri
 from lingbot_map_mlx.utils.geometry import closed_form_inverse_se3_general, unproject_depth_map_to_point_map
+from lingbot_map_mlx.utils.exporter import export_point_cloud_map, save_npz
 
 
 def load_images(image_folder=None, video_path=None, fps=None, max_frames=None, stride=1, image_size=518, rotate_cw90=False):
@@ -126,7 +131,7 @@ def resolve_weight_file(weights_path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="MLX LingBot-MAP Demo (Apple Silicon GPU)")
+    parser = argparse.ArgumentParser(description="Create 3D Map using MLX LingBot-MAP")
     parser.add_argument("--image_folder", type=str, default=None, help="Folder containing sequence images")
     parser.add_argument("--video_path", type=str, default=None, help="Input video file path")
     parser.add_argument("--fps", type=float, default=None, help="Target FPS for video frame extraction")
@@ -141,19 +146,15 @@ def main():
     parser.add_argument("--keyframe_interval", type=int, default=1, help="Keyframe cache interval")
     parser.add_argument("--dtype", type=str, default="float16", choices=["float16", "float32"])
     parser.add_argument("--conf_threshold", type=float, default=1.5, help="Confidence threshold for 3D points")
-    parser.add_argument("--downsample_factor", type=int, default=10, help="Downsample factor for 3D viewer rendering")
-    parser.add_argument("--point_size", type=float, default=0.00001, help="Point size for 3D viewer rendering")
-    parser.add_argument("--port", type=int, default=8080, help="Viser 3D interactive viewer port")
-    parser.add_argument("--rotate_cw90", action="store_true", default=False, help="Rotate portrait images 90 deg clockwise")
-    parser.add_argument("--out_ply", type=str, default="maps/reconstruction.ply", help="Output 3D point cloud file path (.ply, .pcd, .npz)")
     parser.add_argument("--voxel_size", type=float, default=0.0, help="Voxel grid downsampling size (0.0 = no downsampling)")
-    parser.add_argument("--no_viewer", action="store_true", default=False, help="Disable interactive 3D Viser viewer")
+    parser.add_argument("--rotate_cw90", action="store_true", default=False, help="Rotate portrait images 90 deg clockwise")
+    parser.add_argument("--out_map", type=str, default="maps/reconstruction_map.npz", help="Output 3D map archive (.npz or .ply)")
 
     args = parser.parse_args()
     assert args.image_folder or args.video_path, "Specify --image_folder or --video_path"
 
     print("=" * 60)
-    print("MLX LingBot-MAP — Native 3D Reconstruction on Apple Silicon")
+    print("MLX LingBot-MAP — 3D Map Building Process")
     print("=" * 60)
 
     images_mx, (H, W), paths = load_images(
@@ -207,11 +208,10 @@ def main():
     elapsed = time.time() - t0
     print(f"MLX Metal Inference completed: {S} frames in {elapsed:.1f}s ({S/elapsed:.1f} FPS)")
 
-    # Post-processing: Decode camera extrinsics (w2c) & intrinsics
+    # Post-processing: Decode camera extrinsics & intrinsics
     print("\nPost-processing camera poses & unprojecting depth...")
     extri_w2c, intri = pose_encoding_to_extri_intri(predictions['pose_enc'], image_size_hw=(H, W))
     
-    # Compute c2w matrix for camera visualization
     top = extri_w2c
     bottom = mx.zeros((*extri_w2c.shape[:-2], 1, 4))
     bottom = bottom.at[..., 0, 3].add(1.0)
@@ -222,9 +222,9 @@ def main():
     images_np = np.array(predictions['images'][0])       # [S, H, W, 3]
     depths_np = np.array(predictions['depth'][0])         # [S, H, W, 1]
     confs_np = np.array(predictions['depth_conf'][0])     # [S, H, W]
-    extri_w2c_np = np.array(extri_w2c[0])                 # [S, 3, 4] World-to-Camera
-    extri_c2w_np = np.array(extri_c2w[0])                 # [S, 3, 4] Camera-to-World
-    intri_np = np.array(intri[0])                         # [S, 3, 3] Intrinsics
+    extri_w2c_np = np.array(extri_w2c[0])                 # [S, 3, 4]
+    extri_c2w_np = np.array(extri_c2w[0])                 # [S, 3, 4]
+    intri_np = np.array(intri[0])                         # [S, 3, 3]
 
     depths_4d = depths_np if depths_np.ndim == 4 else depths_np[..., None]
     confs_2d = confs_np.squeeze(-1) if (confs_np.ndim == 4 and confs_np.shape[-1] == 1) else confs_np
@@ -235,42 +235,37 @@ def main():
     # Unproject depth maps using World-to-Camera (w2c) extrinsics
     world_pts = unproject_depth_map_to_point_map(depths_4d, extri_w2c_np, intri_np)  # [S, H, W, 3]
 
-    conf_mask = confs_2d >= args.conf_threshold
-    pts_flat = world_pts[conf_mask]
-    rgb_flat = (images_np * 255.0).clip(0, 255).astype(np.uint8)[conf_mask]
+    # Save complete 3D Map file to disk
+    out_file = export_point_cloud_map(
+        world_points=world_pts,
+        colors=images_np,
+        confidence=confs_2d,
+        filepath=args.out_map,
+        conf_threshold=args.conf_threshold,
+        voxel_size=args.voxel_size,
+        extrinsics=extri_w2c_np,
+        intrinsics=intri_np,
+        depth=depths_4d,
+        extrinsic_c2w=extri_c2w_np,
+    )
 
-    if args.out_ply:
-        from lingbot_map_mlx.utils.exporter import export_point_cloud_map
-        export_point_cloud_map(
+    # Also automatically save .npz archive if out_map is .ply
+    if args.out_map.endswith(".ply"):
+        npz_file = args.out_map.replace(".ply", ".npz")
+        save_npz(
+            filepath=npz_file,
+            images=images_np,
+            depth=depths_4d,
+            depth_conf=confs_2d,
+            extrinsic_w2c=extri_w2c_np,
+            extrinsic_c2w=extri_c2w_np,
+            intrinsic=intri_np,
             world_points=world_pts,
-            colors=images_np,
-            confidence=confs_2d,
-            filepath=args.out_ply,
-            conf_threshold=args.conf_threshold,
-            voxel_size=args.voxel_size,
-            extrinsics=extri_w2c_np,
-            intrinsics=intri_np
         )
 
-    if not args.no_viewer:
-        from lingbot_map_mlx.vis import PointCloudViewer
-        vis_preds = {
-            'images': images_np.transpose(0, 3, 1, 2),  # (S, 3, H, W)
-            'depth': depths_4d,                         # (S, H, W, 1)
-            'depth_conf': confs_2d,                     # (S, H, W)
-            'extrinsic': extri_c2w_np,                   # (S, 3, 4) Camera-to-World
-            'intrinsic': intri_np,                       # (S, 3, 3)
-        }
-
-        print(f"\nLaunching original LingBot-Map 3D Web Visualizer at http://localhost:{args.port}...")
-        viewer = PointCloudViewer(
-            pred_dict=vis_preds,
-            port=args.port,
-            vis_threshold=args.conf_threshold,
-            downsample_factor=args.downsample_factor,
-            point_size=args.point_size
-        )
-        viewer.run()
+    print(f"\n[Done] 3D Map creation finished successfully!")
+    print(f"To visualize the map using minimal memory, run:")
+    print(f"    python view_map.py --map_file {out_file if out_file.endswith('.npz') else args.out_map.replace('.ply', '.npz')}")
 
 
 if __name__ == "__main__":
