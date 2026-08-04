@@ -93,11 +93,10 @@ class GCTBase(nn.Module, ABC):
         if self.camera_head is None:
             return {}
 
-        tokens_fp32 = [t.astype(mx.float32) for t in aggregated_tokens_list]
         camera_sw = sliding_window_size if self.enable_camera_sliding_window else -1
 
         pose_enc_list = self.camera_head(
-            tokens_fp32, mask=mask, causal_inference=causal_inference,
+            aggregated_tokens_list, mask=mask, causal_inference=causal_inference,
             num_frame_for_scale=num_frame_for_scale if num_frame_for_scale is not None else -1,
             sliding_window_size=camera_sw,
             num_frame_per_block=num_frame_per_block,
@@ -107,24 +106,21 @@ class GCTBase(nn.Module, ABC):
     def _predict_depth(self, aggregated_tokens_list, images, patch_start_idx, **kwargs):
         if self.depth_head is None:
             return {}
-        tokens_fp32 = [t.astype(mx.float32) for t in aggregated_tokens_list]
-        depth, depth_conf = self.depth_head(tokens_fp32, images=images.astype(mx.float32),
+        depth, depth_conf = self.depth_head(aggregated_tokens_list, images=images,
                                             patch_start_idx=patch_start_idx)
         return {"depth": depth, "depth_conf": depth_conf}
 
     def _predict_points(self, aggregated_tokens_list, images, patch_start_idx, **kwargs):
         if self.point_head is None:
             return {}
-        tokens_fp32 = [t.astype(mx.float32) for t in aggregated_tokens_list]
-        pts3d, pts3d_conf = self.point_head(tokens_fp32, images=images.astype(mx.float32),
+        pts3d, pts3d_conf = self.point_head(aggregated_tokens_list, images=images,
                                             patch_start_idx=patch_start_idx)
         return {"world_points": pts3d, "world_points_conf": pts3d_conf}
 
     def _predict_local_points(self, aggregated_tokens_list, images, patch_start_idx, **kwargs):
         if self.local_point_head is None:
             return {}
-        tokens_fp32 = [t.astype(mx.float32) for t in aggregated_tokens_list]
-        pts3d, pts3d_conf = self.local_point_head(tokens_fp32, images=images.astype(mx.float32),
+        pts3d, pts3d_conf = self.local_point_head(aggregated_tokens_list, images=images,
                                                    patch_start_idx=patch_start_idx)
         return {"cam_points": pts3d, "cam_points_conf": pts3d_conf}
 

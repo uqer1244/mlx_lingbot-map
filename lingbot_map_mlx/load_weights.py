@@ -7,11 +7,14 @@ import numpy as np
 import mlx.core as mx
 
 
-def load_weights(model, npz_path: str, verbose: bool = True):
-    """Load weights from converted .npz into an MLX GCTStream model."""
+def load_weights(model, weights_path: str, verbose: bool = True):
+    """Load weights from converted .safetensors or .npz into an MLX GCTStream model."""
 
-    data = np.load(npz_path, allow_pickle=False)
-    weights = {k: mx.array(data[k]) for k in data.files}
+    if weights_path.endswith(".safetensors"):
+        weights = mx.load(weights_path)
+    else:
+        data = np.load(weights_path, allow_pickle=False)
+        weights = {k: mx.array(data[k]) for k in data.files}
 
     # Build key mapping: PyTorch key -> MLX attribute path
     mapped = {}

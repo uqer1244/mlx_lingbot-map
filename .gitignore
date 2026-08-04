@@ -41,3 +41,6 @@ checkpoints/*.pt
 checkpoints/*.safetensors
 checkpoints/*.npz
 !checkpoints/.gitkeep
+
+# Internal development tools & scripts
+tools/

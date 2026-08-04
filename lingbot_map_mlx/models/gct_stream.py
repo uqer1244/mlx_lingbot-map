@@ -1,6 +1,6 @@
 """GCTStream — MLX port. Streaming inference with KV cache."""
 
-from typing import Optional, Dict
+from typing import Optional, Dict, Callable
 from tqdm.auto import tqdm
 
 import mlx.core as mx
@@ -138,6 +138,7 @@ class GCTStream(GCTBase):
         images: mx.array,
         num_scale_frames: Optional[int] = None,
         keyframe_interval: int = 1,
+        step_callback: Optional[Callable[[int, float], None]] = None,
     ) -> Dict[str, mx.array]:
         """Streaming inference: scale frames first, then frame-by-frame.
 
@@ -145,10 +146,13 @@ class GCTStream(GCTBase):
             images: (B, S, H, W, C) or (S, H, W, C) in NHWC
             num_scale_frames: Number of initial bidirectional frames
             keyframe_interval: Cache every N-th frame after scale frames
+            step_callback: Optional callback(frame_idx, step_duration_sec) per frame
 
         Returns:
             Dict with pose_enc, depth, depth_conf, world_points, world_points_conf, images
         """
+        import time
+
         if images.ndim == 4:
             images = images[None]
         B, S, H, W, C = images.shape
@@ -160,6 +164,7 @@ class GCTStream(GCTBase):
 
         # Phase 1: Scale frames (bidirectional)
         print(f"Processing {scale_frames} scale frames...")
+        t_scale_start = time.perf_counter()
         scale_images = images[:, :scale_frames]
         scale_output = self(
             scale_images,
@@ -167,6 +172,16 @@ class GCTStream(GCTBase):
             num_frame_per_block=scale_frames,
             causal_inference=True,
         )
+
+        # Evaluate initial scale outputs and KV cache
+        init_eval = [v for v in scale_output.values() if isinstance(v, mx.array)]
+        if hasattr(self.aggregator, 'kv_cache') and self.aggregator.kv_cache:
+            init_eval.extend([v for v in self.aggregator.kv_cache.values() if isinstance(v, mx.array)])
+        mx.eval(*init_eval)
+        t_scale_elapsed = time.perf_counter() - t_scale_start
+
+        if step_callback is not None:
+            step_callback(scale_frames - 1, t_scale_elapsed / max(scale_frames, 1))
 
         all_pose_enc = [scale_output["pose_enc"]]
         all_depth = [scale_output["depth"]] if "depth" in scale_output else []
@@ -177,6 +192,7 @@ class GCTStream(GCTBase):
         # Phase 2: Stream frame-by-frame
         pbar = tqdm(range(scale_frames, S), desc='Streaming inference', initial=scale_frames, total=S)
         for i in pbar:
+            t_frame_start = time.perf_counter()
             frame_image = images[:, i:i+1]
 
             is_keyframe = (keyframe_interval <= 1) or ((i - scale_frames) % keyframe_interval == 0)
@@ -204,7 +220,12 @@ class GCTStream(GCTBase):
             if "world_points_conf" in frame_output:
                 all_world_points_conf.append(frame_output["world_points_conf"])
 
-            mx.eval(frame_output["pose_enc"])
+            # Evaluate frame output tensors to trigger GPU computation for the frame
+            mx.eval(*[v for v in frame_output.values() if isinstance(v, mx.array)])
+            t_frame_elapsed = time.perf_counter() - t_frame_start
+
+            if step_callback is not None:
+                step_callback(i, t_frame_elapsed)
 
         predictions = {"pose_enc": mx.concatenate(all_pose_enc, axis=1)}
         if all_depth:

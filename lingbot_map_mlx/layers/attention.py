@@ -182,44 +182,43 @@ class SDPAAttention(Attention):
         sliding_window_frames = self.kv_cache_sliding_window
         scale_frames = self.kv_cache_scale_frames
 
-        if kv_cache[f"k_{global_idx}"].shape[3] > 1:
-            num_cached_frames = kv_cache[f"k_{global_idx}"].shape[2]
-            if num_cached_frames > sliding_window_frames + scale_frames:
-                evict_start = scale_frames
-                evict_end = num_cached_frames - sliding_window_frames
-                if evict_end > evict_start:
-                    evicted_k = kv_cache[f"k_{global_idx}"][:, :, evict_start:evict_end, :, :]
-                    evicted_v = kv_cache[f"v_{global_idx}"][:, :, evict_start:evict_end, :, :]
+        num_cached_frames = kv_cache[f"k_{global_idx}"].shape[2]
+        if num_cached_frames > sliding_window_frames + scale_frames:
+            evict_start = scale_frames
+            evict_end = num_cached_frames - sliding_window_frames
+            if evict_end > evict_start:
+                evicted_k = kv_cache[f"k_{global_idx}"][:, :, evict_start:evict_end, :, :]
+                evicted_v = kv_cache[f"v_{global_idx}"][:, :, evict_start:evict_end, :, :]
 
-                    if self.kv_cache_cross_frame_special:
-                        if self.kv_cache_camera_only:
-                            new_special_k = evicted_k[:, :, :, camera_token_idx:camera_token_idx+1, :]
-                            new_special_v = evicted_v[:, :, :, camera_token_idx:camera_token_idx+1, :]
-                        else:
-                            new_special_k = evicted_k[:, :, :, camera_token_idx:scale_token_idx+1, :]
-                            new_special_v = evicted_v[:, :, :, camera_token_idx:scale_token_idx+1, :]
-
-                        if f"k_{global_idx}_special" not in kv_cache or kv_cache[f"k_{global_idx}_special"] is None:
-                            kv_cache[f"k_{global_idx}_special"] = new_special_k
-                            kv_cache[f"v_{global_idx}_special"] = new_special_v
-                        else:
-                            kv_cache[f"k_{global_idx}_special"] = mx.concatenate(
-                                [kv_cache[f"k_{global_idx}_special"], new_special_k], axis=2)
-                            kv_cache[f"v_{global_idx}_special"] = mx.concatenate(
-                                [kv_cache[f"v_{global_idx}_special"], new_special_v], axis=2)
-
-                    if self.kv_cache_include_scale_frames:
-                        kv_cache[f"k_{global_idx}"] = mx.concatenate([
-                            kv_cache[f"k_{global_idx}"][:, :, :scale_frames, :, :],
-                            kv_cache[f"k_{global_idx}"][:, :, -sliding_window_frames:, :, :]
-                        ], axis=2)
-                        kv_cache[f"v_{global_idx}"] = mx.concatenate([
-                            kv_cache[f"v_{global_idx}"][:, :, :scale_frames, :, :],
-                            kv_cache[f"v_{global_idx}"][:, :, -sliding_window_frames:, :, :]
-                        ], axis=2)
+                if self.kv_cache_cross_frame_special:
+                    if self.kv_cache_camera_only:
+                        new_special_k = evicted_k[:, :, :, camera_token_idx:camera_token_idx+1, :]
+                        new_special_v = evicted_v[:, :, :, camera_token_idx:camera_token_idx+1, :]
                     else:
-                        kv_cache[f"k_{global_idx}"] = kv_cache[f"k_{global_idx}"][:, :, -sliding_window_frames:, :, :]
-                        kv_cache[f"v_{global_idx}"] = kv_cache[f"v_{global_idx}"][:, :, -sliding_window_frames:, :, :]
+                        new_special_k = evicted_k[:, :, :, camera_token_idx:scale_token_idx+1, :]
+                        new_special_v = evicted_v[:, :, :, camera_token_idx:scale_token_idx+1, :]
+
+                    if f"k_{global_idx}_special" not in kv_cache or kv_cache[f"k_{global_idx}_special"] is None:
+                        kv_cache[f"k_{global_idx}_special"] = new_special_k
+                        kv_cache[f"v_{global_idx}_special"] = new_special_v
+                    else:
+                        kv_cache[f"k_{global_idx}_special"] = mx.concatenate(
+                            [kv_cache[f"k_{global_idx}_special"], new_special_k], axis=2)
+                        kv_cache[f"v_{global_idx}_special"] = mx.concatenate(
+                            [kv_cache[f"v_{global_idx}_special"], new_special_v], axis=2)
+
+                if self.kv_cache_include_scale_frames:
+                    kv_cache[f"k_{global_idx}"] = mx.concatenate([
+                        kv_cache[f"k_{global_idx}"][:, :, :scale_frames, :, :],
+                        kv_cache[f"k_{global_idx}"][:, :, -sliding_window_frames:, :, :]
+                    ], axis=2)
+                    kv_cache[f"v_{global_idx}"] = mx.concatenate([
+                        kv_cache[f"v_{global_idx}"][:, :, :scale_frames, :, :],
+                        kv_cache[f"v_{global_idx}"][:, :, -sliding_window_frames:, :, :]
+                    ], axis=2)
+                else:
+                    kv_cache[f"k_{global_idx}"] = kv_cache[f"k_{global_idx}"][:, :, -sliding_window_frames:, :, :]
+                    kv_cache[f"v_{global_idx}"] = kv_cache[f"v_{global_idx}"][:, :, -sliding_window_frames:, :, :]
 
 
 class CausalAttention(nn.Module):
@@ -386,41 +385,44 @@ class CausalAttention(nn.Module):
         sliding_window_frames = self.kv_cache_sliding_window
         scale_frames = self.kv_cache_scale_frames
 
-        if kv_cache[f"k_{global_idx}"].shape[3] > 1:
-            num_cached_frames = kv_cache[f"k_{global_idx}"].shape[2]
-            if num_cached_frames > sliding_window_frames + scale_frames:
-                evict_start = scale_frames
-                evict_end = num_cached_frames - sliding_window_frames
-                if evict_end > evict_start:
-                    evicted_k = kv_cache[f"k_{global_idx}"][:, :, evict_start:evict_end, :, :]
-                    evicted_v = kv_cache[f"v_{global_idx}"][:, :, evict_start:evict_end, :, :]
+        num_cached_frames = kv_cache[f"k_{global_idx}"].shape[2]
+        if num_cached_frames > sliding_window_frames + scale_frames:
+            evict_start = scale_frames
+            evict_end = num_cached_frames - sliding_window_frames
+            if evict_end > evict_start:
+                evicted_k = kv_cache[f"k_{global_idx}"][:, :, evict_start:evict_end, :, :]
+                evicted_v = kv_cache[f"v_{global_idx}"][:, :, evict_start:evict_end, :, :]
 
-                    if self.kv_cache_cross_frame_special:
-                        if self.kv_cache_camera_only:
-                            new_sk = evicted_k[:, :, :, camera_token_idx:camera_token_idx+1, :]
-                            new_sv = evicted_v[:, :, :, camera_token_idx:camera_token_idx+1, :]
-                        else:
-                            new_sk = evicted_k[:, :, :, camera_token_idx:scale_token_idx+1, :]
-                            new_sv = evicted_v[:, :, :, camera_token_idx:scale_token_idx+1, :]
-
-                        if f"k_{global_idx}_special" not in kv_cache or kv_cache[f"k_{global_idx}_special"] is None:
-                            kv_cache[f"k_{global_idx}_special"] = new_sk
-                            kv_cache[f"v_{global_idx}_special"] = new_sv
-                        else:
-                            kv_cache[f"k_{global_idx}_special"] = mx.concatenate(
-                                [kv_cache[f"k_{global_idx}_special"], new_sk], axis=2)
-                            kv_cache[f"v_{global_idx}_special"] = mx.concatenate(
-                                [kv_cache[f"v_{global_idx}_special"], new_sv], axis=2)
-
-                    if self.kv_cache_include_scale_frames:
-                        kv_cache[f"k_{global_idx}"] = mx.concatenate([
-                            kv_cache[f"k_{global_idx}"][:, :, :scale_frames, :, :],
-                            kv_cache[f"k_{global_idx}"][:, :, -sliding_window_frames:, :, :]
-                        ], axis=2)
-                        kv_cache[f"v_{global_idx}"] = mx.concatenate([
-                            kv_cache[f"v_{global_idx}"][:, :, :scale_frames, :, :],
-                            kv_cache[f"v_{global_idx}"][:, :, -sliding_window_frames:, :, :]
-                        ], axis=2)
+                if self.kv_cache_cross_frame_special:
+                    t_dim = evicted_k.shape[3]
+                    if t_dim == 1:
+                        new_sk = evicted_k
+                        new_sv = evicted_v
+                    elif self.kv_cache_camera_only:
+                        new_sk = evicted_k[:, :, :, camera_token_idx:camera_token_idx+1, :]
+                        new_sv = evicted_v[:, :, :, camera_token_idx:camera_token_idx+1, :]
                     else:
-                        kv_cache[f"k_{global_idx}"] = kv_cache[f"k_{global_idx}"][:, :, -sliding_window_frames:, :, :]
-                        kv_cache[f"v_{global_idx}"] = kv_cache[f"v_{global_idx}"][:, :, -sliding_window_frames:, :, :]
+                        new_sk = evicted_k[:, :, :, camera_token_idx:scale_token_idx+1, :]
+                        new_sv = evicted_v[:, :, :, camera_token_idx:scale_token_idx+1, :]
+
+                    if f"k_{global_idx}_special" not in kv_cache or kv_cache[f"k_{global_idx}_special"] is None:
+                        kv_cache[f"k_{global_idx}_special"] = new_sk
+                        kv_cache[f"v_{global_idx}_special"] = new_sv
+                    else:
+                        kv_cache[f"k_{global_idx}_special"] = mx.concatenate(
+                            [kv_cache[f"k_{global_idx}_special"], new_sk], axis=2)
+                        kv_cache[f"v_{global_idx}_special"] = mx.concatenate(
+                            [kv_cache[f"v_{global_idx}_special"], new_sv], axis=2)
+
+                if self.kv_cache_include_scale_frames:
+                    kv_cache[f"k_{global_idx}"] = mx.concatenate([
+                        kv_cache[f"k_{global_idx}"][:, :, :scale_frames, :, :],
+                        kv_cache[f"k_{global_idx}"][:, :, -sliding_window_frames:, :, :]
+                    ], axis=2)
+                    kv_cache[f"v_{global_idx}"] = mx.concatenate([
+                        kv_cache[f"v_{global_idx}"][:, :, :scale_frames, :, :],
+                        kv_cache[f"v_{global_idx}"][:, :, -sliding_window_frames:, :, :]
+                    ], axis=2)
+                else:
+                    kv_cache[f"k_{global_idx}"] = kv_cache[f"k_{global_idx}"][:, :, -sliding_window_frames:, :, :]
+                    kv_cache[f"v_{global_idx}"] = kv_cache[f"v_{global_idx}"][:, :, -sliding_window_frames:, :, :]

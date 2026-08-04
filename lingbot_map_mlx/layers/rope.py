@@ -248,12 +248,11 @@ class WanRotaryPosEmbed(nn.Module):
 
 
 def apply_rotary_emb(x: mx.array, freqs) -> mx.array:
-    """Apply rotary embeddings using real-valued cos/sin rotation.
+    """Apply rotary embeddings using real-valued cos/sin rotation in native dtype.
 
     Args:
         x: (batch, heads, seq_len, head_dim)
-        freqs: Either a (cos, sin) tuple of (1, 1, seq_len, head_dim) arrays,
-               or a single complex-style array (for backward compat — will be unused in MLX).
+        freqs: (cos, sin) tuple of (1, 1, seq_len, head_dim) arrays
 
     Returns:
         Rotated x with same shape and dtype.
@@ -261,30 +260,21 @@ def apply_rotary_emb(x: mx.array, freqs) -> mx.array:
     if isinstance(freqs, tuple):
         cos, sin = freqs
     else:
-        raise ValueError("MLX apply_rotary_emb requires (cos, sin) tuple, not complex freqs")
+        raise ValueError("MLX apply_rotary_emb requires (cos, sin) tuple")
 
-    orig_dtype = x.dtype
-    x = x.astype(mx.float32)
-    cos = cos.astype(mx.float32)
-    sin = sin.astype(mx.float32)
+    dtype = x.dtype
+    if cos.dtype != dtype:
+        cos = cos.astype(dtype)
+        sin = sin.astype(dtype)
 
-    # Real-valued rotation: pairs of features rotated by angle
-    # x = [..., d] where d is head_dim
-    # Split into interleaved pairs: x[..., 0::2] and x[..., 1::2]
-    x1 = x[..., 0::2]  # even indices
-    x2 = x[..., 1::2]  # odd indices
+    # Real-valued rotation on interleaved features: [even, odd]
+    x1 = x[..., 0::2]
+    x2 = x[..., 1::2]
 
-    # cos/sin are interleaved (repeat_interleave_real=True):
-    # cos = [cos_0, cos_0, cos_1, cos_1, ...]
-    # Take every other element to get per-pair values
     cos_half = cos[..., 0::2]
     sin_half = sin[..., 0::2]
 
-    # Apply rotation: (x1 + ix2) * (cos + i*sin) = (x1*cos - x2*sin) + i*(x1*sin + x2*cos)
     out1 = x1 * cos_half - x2 * sin_half
     out2 = x1 * sin_half + x2 * cos_half
 
-    # Interleave back: [out1_0, out2_0, out1_1, out2_1, ...]
-    out = mx.stack([out1, out2], axis=-1).reshape(*x.shape)
-
-    return out.astype(orig_dtype)
+    return mx.stack([out1, out2], axis=-1).reshape(*x.shape)

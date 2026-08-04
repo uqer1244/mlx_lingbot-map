@@ -20,6 +20,30 @@ This repository provides a native Apple Silicon port of [LingBot-MAP / Geometric
 
 ---
 
+## 🛠️ Technical Highlights
+
+- **Native MLX Port**: Re-implemented the Geometric Context Transformer (GCT) and DINOv2 vision trunk using `mlx.core` and `mlx.nn` for Metal GPU acceleration.
+- **Tensor Layout Alignment**: Transposed 4D Conv weights from PyTorch `OIHW` to MLX `OHWI` layout for memory efficiency while preserving numerical parity (`max_diff < 1e-5`).
+- **Multi-Precision & Quantization**: Supports FP32, FP16, BF16, as well as 8-bit and 4-bit group-wise affine quantization (`scales`, `biases`).
+- **Streaming KV Cache**: Implements sliding-window KV caching for efficient camera tracking and depth estimation over long image sequences.
+- **Decoupled Architecture**: Separates GPU inference (`create_map.py`) from 3D visualization (`view_map.py`) to ensure immediate RAM/VRAM release after mapping.
+
+---
+
+## 📦 Model Weight Variants
+
+Pre-converted MLX safetensors weights are hosted on Hugging Face at [uqer1244/mlx_lingbot-map](https://huggingface.co/uqer1244/mlx_lingbot-map) in 5 precision formats:
+
+| Format / Precision | File Name | Size | Target Hardware / Description |
+| :--- | :--- | :--- | :--- |
+| **FP16 (Recommended)** | `lingbot-map-fp16.safetensors` | **2.16 GB** | Default precision for Apple Silicon GPUs (Fastest & Balanced) |
+| **FP32** | `lingbot-map-fp32.safetensors` | **4.31 GB** | Full precision reference weights |
+| **BF16** | `lingbot-map-bf16.safetensors` | **2.16 GB** | BFloat16 precision for M2 / M3 / M4 chips |
+| **INT8** | `lingbot-map-int8.safetensors` | **1.24 GB** | 8-bit Group-wise Affine Quantization for low-memory devices |
+| **INT4** | `lingbot-map-int4.safetensors` | **0.72 GB** | 4-bit Group-wise Affine Quantization for minimal RAM usage |
+
+---
+
 ## ⚡ Key Features
 
 - **Apple Silicon Metal GPU Acceleration**: Optimized MLX graph execution for Apple M-series chips.
@@ -66,6 +90,7 @@ python3 create_map.py --video_path path/to/video.mp4 --fps 10 --out_map maps/vid
 Launches the interactive 3D Web Viewer using negligible RAM (0% MLX model overhead):
 
 ```bash
+# Visualize using default port 8080
 python3 view_map.py --map_file maps/my_map.npz --port 8080
 ```
 
@@ -90,7 +115,6 @@ mlx_lingbot-map/
 ├── create_map.py         # [Process 1] MLX GPU inference & 3D map exporter (exits to release RAM)
 ├── view_map.py           # [Process 2] Standalone lightweight 3D web visualizer (~150MB RAM)
 ├── demo_mlx.py           # Single-command unified pipeline
-├── convert_weights.py    # PyTorch -> MLX float16 weight converter
 ├── lingbot_map_mlx/      # Core MLX model package
 │   ├── aggregator/       # Feature extraction & streaming KV cache
 │   ├── heads/            # Camera pose & DPT depth heads
@@ -99,7 +123,8 @@ mlx_lingbot-map/
 │   ├── utils/            # 3D geometry, pose encoding, & multi-format exporter
 │   └── vis/              # Original LingBot-Map PointCloudViewer web visualizer
 ├── maps/                 # Storage for generated 3D map files (.npz, .ply)
-├── checkpoints/          # Model weights
+├── checkpoints/          # MLX safetensors weights (FP16, FP32, BF16, INT8, INT4)
+├── tools/                # Conversion and Hugging Face upload utilities
 ├── pyproject.toml
 └── requirements.txt
 ```

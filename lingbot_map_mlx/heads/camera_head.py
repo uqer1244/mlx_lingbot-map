@@ -215,12 +215,19 @@ class CameraCausalHead(nn.Module):
                     cache[f"v_{j}"] = None
                 self.kv_cache.append(cache)
 
-        return self.trunk_fn(
+        out = self.trunk_fn(
             pose_tokens, mask, num_iterations,
             num_frame_per_block=num_frame_per_block,
             num_frame_for_scale=num_frame_for_scale,
             sliding_window_size=effective_sw,
         )
+        if causal_inference:
+            skip_append = False
+            if self.kv_cache and len(self.kv_cache) > 0:
+                skip_append = self.kv_cache[0].get("_skip_append", False)
+            if not skip_append:
+                self.frame_idx += pose_tokens.shape[1]
+        return out
 
     def trunk_fn(
         self, pose_tokens: mx.array, mask=None, num_iterations: int = 4,

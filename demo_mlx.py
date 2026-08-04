@@ -92,37 +92,17 @@ def resolve_weight_file(weights_path):
         return weights_path
     checkpoints_dir = "checkpoints"
     os.makedirs(checkpoints_dir, exist_ok=True)
-    fallback_npz = os.path.join(checkpoints_dir, "lingbot-map-mlx-f16-fixed.npz")
-    if os.path.exists(fallback_npz):
-        return fallback_npz
-    
-    pt_path = os.path.join(checkpoints_dir, "lingbot-map.pt")
-    if not os.path.exists(pt_path):
-        print("Downloading LingBot-Map weights from HuggingFace...")
-        from huggingface_hub import hf_hub_download
-        hf_hub_download('robbyant/lingbot-map', 'lingbot-map.pt', local_dir=checkpoints_dir)
-        
-    print("Converting weights to MLX float16 format...")
-    import torch, gc
-    ckpt = torch.load(pt_path, map_location='cpu', weights_only=False)
-    state_dict = ckpt.get('model', ckpt)
-    del ckpt; gc.collect()
 
-    conv_transpose_keys = {'depth_head.resize_layers.0.weight', 'depth_head.resize_layers.1.weight'}
-    SKIP_TRANSPOSE = {'aggregator.camera_token', 'aggregator.register_token', 'aggregator.scale_token'}
+    default_safetensors = os.path.join(checkpoints_dir, "lingbot-map-fp16.safetensors")
+    if os.path.exists(default_safetensors):
+        return default_safetensors
 
-    weights = {}
-    for key, tensor in state_dict.items():
-        arr = tensor.float().numpy()
-        if key in conv_transpose_keys:
-            arr = np.transpose(arr, (1, 2, 3, 0))
-        elif arr.ndim == 4 and key.endswith('.weight') and key not in SKIP_TRANSPOSE:
-            arr = np.transpose(arr, (0, 2, 3, 1))
-        weights[key] = arr.astype(np.float16)
+    for alt in ["lingbot-map-fp32.safetensors", "lingbot-map-bf16.safetensors", "lingbot-map-int8.safetensors", "lingbot-map-int4.safetensors"]:
+        alt_path = os.path.join(checkpoints_dir, alt)
+        if os.path.exists(alt_path):
+            return alt_path
 
-    np.savez(fallback_npz, **weights)
-    print(f"Saved converted MLX weights to {fallback_npz}")
-    return fallback_npz
+    raise FileNotFoundError("MLX weights not found in checkpoints/! Please run convert_all_precisions.py.")
 
 
 def main():
@@ -132,7 +112,7 @@ def main():
     parser.add_argument("--fps", type=float, default=None, help="Target FPS for video frame extraction")
     parser.add_argument("--max_frames", type=int, default=20, help="Maximum number of frames to process")
     parser.add_argument("--stride", type=int, default=1, help="Stride interval for frame sampling")
-    parser.add_argument("--weights", type=str, default="checkpoints/lingbot-map-mlx-f16-fixed.npz", help="Path to MLX weights file (.npz)")
+    parser.add_argument("--weights", type=str, default="checkpoints/lingbot-map-fp16.safetensors", help="Path to MLX weights file (.safetensors)")
     parser.add_argument("--image_size", type=int, default=518, help="Target image size (longest side)")
     parser.add_argument("--mode", type=str, default="streaming", choices=["streaming", "windowed"], help="Inference mode")
     parser.add_argument("--window_size", type=int, default=20, help="Frames per window in windowed mode")
