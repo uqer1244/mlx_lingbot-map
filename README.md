@@ -14,6 +14,7 @@ This repository provides a native Apple Silicon port of [LingBot-MAP / Geometric
 
 ## 🔗 Links & Resources
 
+- **MLX GitHub Repository**: [uqer1244/mlx_lingbot-map](https://github.com/uqer1244/mlx_lingbot-map)
 - **Converted MLX Model Weights (Hugging Face)**: [uqer1244/mlx_lingbot-map](https://huggingface.co/uqer1244/mlx_lingbot-map)
 - **Original Model Weights (Hugging Face)**: [robbyant/lingbot-map](https://huggingface.co/robbyant/lingbot-map)
 - **Original GitHub Repository**: [Robbyant/lingbot-map](https://github.com/Robbyant/lingbot-map)
@@ -62,8 +63,8 @@ Pre-converted MLX safetensors weights are hosted on Hugging Face at [uqer1244/ml
 
 ```bash
 # Clone repository
-git clone https://github.com/anmolduainter/lingbot-map-mlx.git
-cd mlx-lingbot-map
+git clone https://github.com/uqer1244/mlx_lingbot-map.git
+cd mlx_lingbot-map
 
 # Create virtual environment & install dependencies
 python3 -m venv .venv
